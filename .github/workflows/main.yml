@@ -11,10 +11,10 @@ jobs:
       - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Configurar Node
+      - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
 
       - name: Configurar Java
         uses: actions/setup-java@v4
@@ -22,32 +22,53 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Verificar projeto
+      - name: Encontrar projeto
         run: |
-          echo "Conteúdo do projeto:"
-          ls -la
-          test -f package.json || {
+          echo "Procurando package.json..."
+          PACKAGE=$(find "$GITHUB_WORKSPACE" -name package.json -not -path "*/node_modules/*" | head -n 1)
+
+          if [ -z "$PACKAGE" ]; then
             echo "ERRO: package.json não encontrado!"
             exit 1
-          }
+          fi
+
+          PROJECT_DIR=$(dirname "$PACKAGE")
+
+          echo "package.json encontrado em:"
+          echo "$PACKAGE"
+
+          echo "Pasta do projeto:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Instalar dependências
-        run: npm install
+        run: |
+          cd "$PROJECT_DIR"
+          echo "Pasta atual:"
+          pwd
+          echo "Arquivos:"
+          ls -la
+          npm install
 
-      - name: Criar projeto Android
-        run: npx cap add android
+      - name: Criar Android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap add android
 
       - name: Sincronizar Android
-        run: npx cap sync android
+        run: |
+          cd "$PROJECT_DIR"
+          npx cap sync android
 
       - name: Gerar APK
         run: |
-          chmod +x android/gradlew
-          cd android
+          cd "$PROJECT_DIR/android"
+          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Enviar APK
         uses: actions/upload-artifact@v4
         with:
           name: Mental-AI-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/android/app/build/outputs/apk/debug/app-debug.apk'
